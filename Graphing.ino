@@ -2,7 +2,7 @@
   This program is based on Kris Kasprzak's Graphing project and customized for the Elegoo 2.8" TFT Touch Screen. 
   Kris Kasprzak's Graphing github page: https://github.com/KrisKasprzak/Graphing
   
-  This program provides bar graph (horizontal and vertical orientations) and a dial type graph functions
+  This program provides cartesian type graph function
   
   Dependencies:
     - Arduino Mega (or UNO) and an Elegoo 2.8" TFT Touch Screen
@@ -11,55 +11,20 @@
         Elegoo Libraries (https://github.com/jmperou/Graphing-Elegoo-2.8-TFT/tree/main/Elegoo_Libraries)
         For Library installation instructions (https://www.arduino.cc/en/Guide/Libraries#:~:text=In%20the%20Arduino%20IDE%2C%20navigate,ZIP%20Library''.)
         
-  Revisions
-  rev     date        author      description
-  2       05-20-2022  jmperou     customization for Elegoo 2.8" TFT Touch Screen
-  1       12-24-2015  kasprzak    initial creation
+Revisions
+rev     date        author      description
+2       5-20-2022   jmperou     customization for Elegoo 2.8" TFT Touch Screen
+1       12-24-2015  kasprzak    initial creation
+
 */
 
-
 #include <SPI.h>
+#include <SD.h>
 #include <Elegoo_GFX.h>    // Core graphics library
 #include <Elegoo_TFTLCD.h> // Hardware-specific library
 
-// http://www.barth-dev.de/online/rgb565-color-picker/
-#define LTBLUE    0xB6DF
-#define LTTEAL    0xBF5F
-#define LTGREEN         0xBFF7
-#define LTCYAN    0xC7FF
-#define LTRED           0xFD34
-#define LTMAGENTA       0xFD5F
-#define LTYELLOW        0xFFF8
-#define LTORANGE        0xFE73
-#define LTPINK          0xFDDF
-#define LTPURPLE  0xCCFF
-#define LTGREY          0xE71C
 
-#define BLUE            0x001F
-#define TEAL    0x0438
-#define GREEN           0x07E0
-#define CYAN          0x07FF
-#define RED           0xF800
-#define MAGENTA       0xF81F
-#define YELLOW        0xFFE0
-#define ORANGE        0xFD20
-#define PINK          0xF81F
-#define PURPLE    0x801F
-#define GREY        0xC618
-#define WHITE         0xFFFF
-#define BLACK         0x0000
-
-#define DKBLUE        0x000D
-#define DKTEAL    0x020C
-#define DKGREEN       0x03E0
-#define DKCYAN        0x03EF
-#define DKRED         0x6000
-#define DKMAGENTA       0x8008
-#define DKYELLOW        0x8400
-#define DKORANGE        0x8200
-#define DKPINK          0x9009
-#define DKPURPLE      0x4010
-#define DKGREY        0x4A49
+// These are 'flexible' lines that can be changed
 
 #define LCD_CS A3 // Chip Select goes to Analog 3
 #define LCD_CD A2 // Command/Data goes to Analog 2
@@ -67,23 +32,71 @@
 #define LCD_RD A0 // LCD Read goes to Analog 0
 #define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
 
-double volts;
-double bvolts;
-double pmvolts;
 
-boolean graph_1 = true;
-boolean graph_2 = true;
-boolean graph_3 = true;
-boolean graph_4 = true;
-boolean graph_5 = true;
-boolean graph_6 = true;
-boolean graph_7 = true;
+#define LTBLUE    0xB6DF
+#define LTTEAL    0xBF5F
+#define LTGREEN   0xBFF7
+#define LTCYAN    0xC7FF
+#define LTRED     0xFD34
+#define LTMAGENTA 0xFD5F
+#define LTYELLOW  0xFFF8
+#define LTORANGE  0xFE73
+#define LTPINK    0xFDDF
+#define LTPURPLE  0xCCFF
+#define LTGREY    0xE71C
+
+#define BLUE      0x001F
+#define TEAL      0x0438
+#define GREEN     0x07E0
+#define CYAN      0x07FF
+#define RED       0xF800
+#define MAGENTA   0xF81F
+#define YELLOW    0xFFE0
+#define ORANGE    0xFC00
+#define PINK      0xF81F
+#define PURPLE    0x8010
+#define GREY      0xC618
+#define WHITE     0xFFFF
+#define BLACK     0x0000
+
+#define DKBLUE    0x000D
+#define DKTEAL    0x020C
+#define DKGREEN   0x03E0
+#define DKCYAN    0x03EF
+#define DKRED     0x6000
+#define DKMAGENTA 0x8008
+#define DKYELLOW  0x8400
+#define DKORANGE  0x8200
+#define DKPINK    0x9009
+#define DKPURPLE  0x4010
+#define DKGREY    0x4A49
+
+
+#define ADJ_PIN A0
+
+double a1, b1, c1, d1, r2, r1, vo, tempC, tempF, tempK;
 
 Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
+// this is the only external variable used by the graph
+// it's a flat to draw the coordinate system only on the first pass
+boolean display1 = true;
+boolean display2 = true;
+boolean display3 = true;
+boolean display4 = true;
+boolean display5 = true;
+boolean display6 = true;
+boolean display7 = true;
+boolean display8 = true;
+boolean display9 = true;
+double ox , oy ;
+
 void setup() {
+
   Serial.begin(9600);
-  #ifdef USE_Elegoo_SHIELD_PINOUT
+
+  pinMode(ADJ_PIN, INPUT);
+   #ifdef USE_Elegoo_SHIELD_PINOUT
     Serial.println(F("Using Elegoo 2.8\" TFT Arduino Shield Pinout"));
   #else
     Serial.println(F("Using Elegoo 2.8\" TFT Breakout Board Pinout"));
@@ -122,285 +135,245 @@ void setup() {
     identifier=0x9341;
 
   }
-
   tft.begin(identifier);
   tft.fillScreen(BLACK);
-  tft.setRotation(3);
-  pinMode(A0, INPUT);
 
+  tft.setRotation(2);
+  a1 = 3.354016E-03 ;
+  b1 = 2.569850E-04 ;
+  c1 = 2.620131E-06 ;
+  d1 = 6.383091E-08 ;
+
+
+  double x, y;
+
+
+  tft.setRotation(3);
+
+
+  for (x = 0; x <= 6.3; x += .1) {
+
+    y = sin(x);
+    Graph(tft, x, y, 60, 290, 390, 260, 0, 6.5, 1, -1, 1, .25, "Sin Function", "x", "sin(x)", DKBLUE, RED, YELLOW, WHITE, BLACK, display1);
+
+  }
+
+  delay(1000);
+
+  tft.fillScreen(BLACK);
+  for (x = 0; x <= 6.3; x += .1) {
+
+    y = sin(x);
+    Graph(tft, x, y, 100, 280, 100, 240, 0, 6.5, 3.25, -1, 1, .25, "Sin Function", "x", "sin(x)", GREY, GREEN, RED, YELLOW, BLACK, display9);
+
+  }
+
+    delay(1000);
+
+  tft.fillScreen(BLACK);
+  for (x = 0; x <= 25.2; x += .1) {
+
+    y = sin(x);
+    Graph(tft, x, y, 50, 190, 400, 60, 0, 25, 5, -1, 1, .5, "Sin Function", "x", "sin(x)", DKYELLOW, YELLOW, GREEN, WHITE, BLACK, display8);
+
+  }
+
+  delay(1000);
+
+  tft.fillScreen(BLACK);
+  for (x = 0.001; x <= 10; x += .1) {
+
+    y = log(x);
+    Graph(tft, x, y, 50, 240, 300, 180, 0, 10, 1, -10, 5, 1, "Natural Log Function", "x", "ln(x)", BLUE, RED, WHITE, WHITE, BLACK, display2);
+
+  }
+
+  
+
+  delay(1000);
+  tft.fillScreen(BLACK);
+
+  for (x = 0; x <= 10; x += 1) {
+
+    y = x * x;
+    Graph(tft, x, y, 50, 290, 390, 260, 0, 10, 1, 0, 100, 10, "Square Function", "x", "x^2", DKRED, RED, YELLOW, WHITE, BLACK, display3);
+
+  }
+
+  delay(1000);
+  tft.fillScreen(BLACK);
+
+  for (x = 0.00; x <= 20; x += .01) {
+
+    y = ((sin(x)) * x + cos(x)) - log(x);
+    Graph(tft, x, y, 50, 290, 390, 260, 0, 20, 1, -20, 20, 5, "Weird Function", "x", " y = sin(x) + cos(x) - log(x)", ORANGE, YELLOW, CYAN, WHITE, BLACK, display4);
+
+  }
+
+  delay(1000);
+  tft.fillScreen(BLACK);
+  tft.setRotation(2);
+  for (x = 0; x <= 12.6; x += .1) {
+
+    y = sin(x);
+    Graph(tft, x, y, 50, 250, 150, 150, 0, 13, 3.5, -1, 1, 1, "Sin(x)", "x", "sin(x)", DKBLUE, RED, YELLOW, WHITE, BLACK, display5);
+
+  }
+  tft.setRotation(3);
+  delay(1000);
+  tft.fillScreen(WHITE);
+
+  for (x = 0; x <= 6.3; x += .05) {
+
+    y = cos(x);
+    Graph(tft, x, y, 100, 250, 300, 200, 0, 6.5, 3.25, -1, 1, 1, "Cos Function", "x", "cos(x)", DKGREY, GREEN, BLUE, BLACK, WHITE, display6);
+
+  }
+
+  delay(1000);
+  tft.fillScreen(BLACK);
+
+
+  for (x = 0; x <= 60; x += 1) {
+    vo = analogRead(ADJ_PIN) / 204.6;
+    r1 = 9940;
+    r2 = ( vo * r1) / (5 - vo);
+
+    //equation from data sheet
+    tempK = 1.0 / (a1 + (b1 * (log(r2 / 10000.0))) + (c1 * pow(log(r2 / 10000.0), 2)) + (d1 * pow(log(r2 / 10000.0), 3)));
+    tempC  = ((tempK - 273.15) );
+    y = tempF  = (tempC * 1.8000) + 32.00;
+
+    Graph(tft, x, y, 50, 290, 390, 260, 0, 60, 10, 70, 90, 5, "Room Temperature", " Time [s]", "Temperature [deg F]", DKBLUE, RED, GREEN, WHITE, BLACK, display7);
+    delay(250);
+  }
+
+ delay(1000);
+  tft.fillScreen(BLACK);
 
 }
+
 
 void loop(void) {
 
-  bvolts = analogRead(A0);
-  volts = (bvolts  / 204.6 ) ;
-  pmvolts = (bvolts  / 204.6 ) - 2.5 ;
-
-  DrawBarChartV(tft, 10,  130, 30, 100, 0, 1200 , 100, bvolts , 4 , 0, BLUE, DKBLUE, BLUE, WHITE, BLACK, "Bits", graph_1);
-
-  DrawBarChartH(tft, 70, 180, 200, 30, -2.5, 2.5, .5, pmvolts, 2, 1, GREEN, DKGREEN,  GREEN, WHITE, BLACK, "Offset", graph_6);
-
-  DrawDial(tft, 220, 90, 80, 0, 5 , 1, 240, volts,  1 , 2, RED, WHITE, BLACK, "Volts", graph_7);
-
 }
 
-
 /*
-  This method will draw a vertical bar graph for single input
-  it has a rather large arguement list and is as follows
-  &d = display object name
-  x = position of bar graph (lower left of bar)
-  y = position of bar (lower left of bar
-  w = width of bar graph
-  h =  height of bar graph (does not need to be the same as the max scale)
-  loval = lower value of the scale (can be negative)
-  hival = upper value of the scale
-  inc = scale division between loval and hival
-  curval = date to graph (must be between loval and hival)
-  dig = format control to set number of digits to display (not includeing the decimal)
-  dec = format control to set number of decimals to display (not includeing the decimal)
-  barcolor = color of bar graph
-  voidcolor = color of bar graph background
-  bordercolor = color of the border of the graph
-  textcolor = color of the text
-  backcolor = color of the bar graph's background
-  label = bottom lable text for the graph
-  redraw = flag to redraw display only on first pass (to reduce flickering)
+  function to draw a cartesian coordinate system and plot whatever data you want
+  just pass x and y and the graph will be drawn
+  huge arguement list
+  &d name of your display object
+  x = x data point
+  y = y datapont
+  gx = x graph location (lower left)
+  gy = y graph location (lower left)
+  w = width of graph
+  h = height of graph
+  xlo = lower bound of x axis
+  xhi = upper bound of x asis
+  xinc = division of x axis (distance not count)
+  ylo = lower bound of y axis
+  yhi = upper bound of y asis
+  yinc = division of y axis (distance not count)
+  title = title of graph
+  xlabel = x asis label
+  ylabel = y asis label
+  gcolor = graph line colors
+  acolor = axi ine colors
+  pcolor = color of your plotted data
+  tcolor = text color
+  bcolor = background color
+  &redraw = flag to redraw graph on fist call only
 */
 
-void DrawBarChartV(Elegoo_TFTLCD & d, double x , double y , double w, double h , double loval , double hival , double inc , double curval ,  int dig , int dec, unsigned int barcolor, unsigned int voidcolor, unsigned int bordercolor, unsigned int textcolor, unsigned int backcolor, String label, boolean & redraw)
-{
 
-  double stepval, range;
-  double my, level;
-  double i, data;
-  // draw the border, scale, and label once
-  // avoid doing this on every update to minimize flicker
+void Graph(Elegoo_TFTLCD &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw) {
+
+  double ydiv, xdiv;
+  // initialize old x and old y in order to draw the first point of the graph
+  // but save the transformed value
+  // note my transform funcition is the same as the map function, except the map uses long and we need doubles
+  //static double ox = (x - xlo) * ( w) / (xhi - xlo) + gx;
+  //static double oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+  double i;
+  double temp;
+  int rot, newrot;
+
   if (redraw == true) {
-    redraw = false;
 
-    d.drawRect(x - 1, y - h - 1, w + 2, h + 2, bordercolor);
-    d.setTextColor(textcolor, backcolor);
-    d.setTextSize(2);
-    d.setCursor(x , y + 10);
-    d.println(label);
-    // step val basically scales the hival and low val to the height
-    // deducting a small value to eliminate round off errors
-    // this val may need to be adjusted
-    stepval = ( inc) * (double (h) / (double (hival - loval))) - .001;
-    for (i = 0; i <= h; i += stepval) {
-      my =  y - h + i;
-      d.drawFastHLine(x + w + 1, my,  5, textcolor);
-      // draw lables
+    redraw = false;
+    ox = (x - xlo) * ( w) / (xhi - xlo) + gx;
+    oy = (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+    // draw y scale
+    for ( i = ylo; i <= yhi; i += yinc) {
+      // compute the transform
+      temp =  (i - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+
+      if (i == 0) {
+        d.drawLine(gx, temp, gx + w, temp, acolor);
+      }
+      else {
+        d.drawLine(gx, temp, gx + w, temp, gcolor);
+      }
+
       d.setTextSize(1);
-      d.setTextColor(textcolor, backcolor);
-      d.setCursor(x + w + 12, my - 3 );
-      data = hival - ( i * (inc / stepval));
-      d.println(Format(data, dig, dec));
+      d.setTextColor(tcolor, bcolor);
+      d.setCursor(gx - 40, temp);
+      // precision is default Arduino--this could really use some format control
+      d.println(i);
     }
+    // draw x scale
+    for (i = xlo; i <= xhi; i += xinc) {
+
+      // compute the transform
+
+      temp =  (i - xlo) * ( w) / (xhi - xlo) + gx;
+      if (i == 0) {
+        d.drawLine(temp, gy, temp, gy - h, acolor);
+      }
+      else {
+        d.drawLine(temp, gy, temp, gy - h, gcolor);
+      }
+
+      d.setTextSize(1);
+      d.setTextColor(tcolor, bcolor);
+      d.setCursor(temp, gy + 10);
+      // precision is default Arduino--this could really use some format control
+      d.println(i);
+    }
+
+    //now draw the labels
+    d.setTextSize(2);
+    d.setTextColor(tcolor, bcolor);
+    d.setCursor(gx , gy - h - 30);
+    d.println(title);
+
+    d.setTextSize(1);
+    d.setTextColor(acolor, bcolor);
+    d.setCursor(gx , gy + 20);
+    d.println(xlabel);
+
+    d.setTextSize(1);
+    d.setTextColor(acolor, bcolor);
+    d.setCursor(gx - 30, gy - h - 10);
+    d.println(ylabel);
+
+
   }
-  // compute level of bar graph that is scaled to the  height and the hi and low vals
-  // this is needed to accompdate for +/- range
-  level = (h * (((curval - loval) / (hival - loval))));
-  // draw the bar graph
-  // write a upper and lower bar to minimize flicker cause by blanking out bar and redraw on update
-  d.fillRect(x, y - h, w, h - level,  voidcolor);
-  d.fillRect(x, y - level, w,  level, barcolor);
-  // write the current value
-  d.setTextColor(textcolor, backcolor);
-  d.setTextSize(2);
-  d.setCursor(x , y - h - 23);
-  d.println(Format(curval, dig, dec));
+
+  //graph drawn now plot the data
+  // the entire plotting code are these few lines...
+  // recall that ox and oy are initialized as static above
+  x =  (x - xlo) * ( w) / (xhi - xlo) + gx;
+  y =  (y - ylo) * (gy - h - gy) / (yhi - ylo) + gy;
+  d.drawLine(ox, oy, x, y, pcolor);
+  d.drawLine(ox, oy + 1, x, y + 1, pcolor);
+  d.drawLine(ox, oy - 1, x, y - 1, pcolor);
+  ox = x;
+  oy = y;
 
 }
 
 /*
-  This method will draw a dial-type graph for single input
-  it has a rather large arguement list and is as follows
-  &d = display object name
-  cx = center position of dial
-  cy = center position of dial
-  r = radius of the dial
-  loval = lower value of the scale (can be negative)
-  hival = upper value of the scale
-  inc = scale division between loval and hival
-  sa = sweep angle for the dials scale
-  curval = date to graph (must be between loval and hival)
-  dig = format control to set number of digits to display (not includeing the decimal)
-  dec = format control to set number of decimals to display (not includeing the decimal)
-  needlecolor = color of the needle
-  dialcolor = color of the dial
-  textcolor = color of all text (background is dialcolor)
-  label = bottom lable text for the graph
-  redraw = flag to redraw display only on first pass (to reduce flickering)
+  End of graphing functioin
 */
-
-void DrawDial(Elegoo_TFTLCD & d, int cx, int cy, int r, double loval , double hival , double inc, double sa, double curval,  int dig , int dec, unsigned int needlecolor, unsigned int dialcolor, unsigned int  textcolor, String label, boolean & redraw) {
-
-  double ix, iy, ox, oy, tx, ty, lx, rx, ly, ry, i, offset, stepval, data, angle;
-  double degtorad = .0174532778;
-  static double px = cx, py = cy, pix = cx, piy = cy, plx = cx, ply = cy, prx = cx, pry = cy;
-
-  // draw the dial only one time--this will minimize flicker
-  if ( redraw == true) {
-    redraw = false;
-    d.fillCircle(cx, cy, r - 2, dialcolor);
-    d.drawCircle(cx, cy, r, needlecolor);
-    d.drawCircle(cx, cy, r - 1, needlecolor);
-    d.setTextColor(textcolor, dialcolor);
-    d.setTextSize(2);
-    d.setCursor(cx - 25, cy + 40);
-    d.println(label);
-
-  }
-  // draw the current value
-  d.setTextSize(2);
-  d.setTextColor(textcolor, dialcolor);
-  d.setCursor(cx - 25, cy + 20 );
-  d.println(Format(curval, dig, dec));
-  // center the scale about the vertical axis--and use this to offset the needle, and scale text
-  offset = (270 +  sa / 2) * degtorad;
-  // find hte scale step value based on the hival low val and the scale sweep angle
-  // deducting a small value to eliminate round off errors
-  // this val may need to be adjusted
-  stepval = ( inc) * (double (sa) / (double (hival - loval))) + .00;
-  // draw the scale and numbers
-  // note draw this each time to repaint where the needle was
-  for (i = 0; i <= sa; i += stepval) {
-    angle = ( i  * degtorad);
-    angle = offset - angle ;
-    ox =  (r - 2) * cos(angle) + cx;
-    oy =  (r - 2) * sin(angle) + cy;
-    ix =  (r - 10) * cos(angle) + cx;
-    iy =  (r - 10) * sin(angle) + cy;
-    tx =  (r - 30) * cos(angle) + cx;
-    ty =  (r - 30) * sin(angle) + cy;
-    d.drawLine(ox, oy, ix, iy, textcolor);
-    d.setTextSize(1.5);
-    d.setTextColor(textcolor, dialcolor);
-    d.setCursor(tx - 10, ty );
-    data = hival - ( i * (inc / stepval)) ;
-    d.println(Format(data, dig, dec));
-  }
-  // compute and draw the needle
-  angle = (sa * (1 - (((curval - loval) / (hival - loval)))));
-  angle = angle * degtorad;
-  angle = offset - angle  ;
-  ix =  (r - 10) * cos(angle) + cx;
-  iy =  (r - 10) * sin(angle) + cy;
-  // draw a triangle for the needle (compute and store 3 vertiticies)
-  lx =  5 * cos(angle - 90 * degtorad) + cx;
-  ly =  5 * sin(angle - 90 * degtorad) + cy;
-  rx =  5 * cos(angle + 90 * degtorad) + cx;
-  ry =  5 * sin(angle + 90 * degtorad) + cy;
-  // first draw the previous needle in dial color to hide it
-  // note draw performance for triangle is pretty bad...
-
-  //d.fillTriangle (pix, piy, plx, ply, prx, pry, dialcolor);
-  //d.fillTriangle (pix, piy, plx, ply, prx, pry, dialcolor);
-
-  //d.fillTriangle (pix, piy, plx, ply, prx - 20, pry - 20, dialcolor);
-  //d.fillTriangle (pix, piy, prx, pry, prx + 20, pry + 20, dialcolor);
-
-  d.fillTriangle (pix, piy, plx, ply, prx, pry, dialcolor);
-  d.drawTriangle (pix, piy, plx, ply, prx, pry, dialcolor);
-
-  // then draw the old needle in need color to display it
-  d.fillTriangle (ix, iy, lx, ly, rx, ry, needlecolor);
-  d.drawTriangle (ix, iy, lx, ly, rx, ry, textcolor);
-
-  // draw a cute little dial center
-  d.fillCircle(cx, cy, 8, textcolor);
-  //save all current to old so the previous dial can be hidden
-  pix = ix;
-  piy = iy;
-  plx = lx;
-  ply = ly;
-  prx = rx;
-  pry = ry;
-
-}
-
-/*
-  This method will draw a horizontal bar graph for single input
-  it has a rather large arguement list and is as follows
-  &d = display object name
-  x = position of bar graph (upper left of bar)
-  y = position of bar (upper left of bar (add some vale to leave room for label)
-  w = width of bar graph (does not need to be the same as the max scale)
-  h =  height of bar graph
-  loval = lower value of the scale (can be negative)
-  hival = upper value of the scale
-  inc = scale division between loval and hival
-  curval = date to graph (must be between loval and hival)
-  dig = format control to set number of digits to display (not includeing the decimal)
-  dec = format control to set number of decimals to display (not includeing the decimal)
-  barcolor = color of bar graph
-  voidcolor = color of bar graph background
-  bordercolor = color of the border of the graph
-  textcolor = color of the text
-  back color = color of the bar graph's background
-  label = bottom lable text for the graph
-  redraw = flag to redraw display only on first pass (to reduce flickering)
-*/
-
-void DrawBarChartH(Elegoo_TFTLCD & d, double x , double y , double w, double h , double loval , double hival , double inc , double curval ,  int dig , int dec, unsigned int barcolor, unsigned int voidcolor, unsigned int bordercolor, unsigned int textcolor, unsigned int backcolor, String label, boolean & redraw)
-{
-  double stepval, range;
-  double mx, level;
-  double i, data;
-
-  // draw the border, scale, and label once
-  // avoid doing this on every update to minimize flicker
-  // draw the border and scale
-  if (redraw == true) {
-    redraw = false;
-    d.drawRect(x , y , w, h, bordercolor);
-    d.setTextColor(textcolor, backcolor);
-    d.setTextSize(2);
-    d.setCursor(x , y - 20);
-    d.println(label);
-    // step val basically scales the hival and low val to the width
-    stepval =  inc * (double (w) / (double (hival - loval))) - .00001;
-    // draw the text
-    for (i = 0; i <= w; i += stepval) {
-      d.drawFastVLine(i + x , y + h + 1,  5, textcolor);
-      // draw lables
-      d.setTextSize(1);
-      d.setTextColor(textcolor, backcolor);
-      d.setCursor(i + x , y + h + 10);
-      // addling a small value to eliminate round off errors
-      // this val may need to be adjusted
-      data =  ( i * (inc / stepval)) + loval + 0.00001;
-      d.println(Format(data, dig, dec));
-    }
-  }
-  // compute level of bar graph that is scaled to the width and the hi and low vals
-  // this is needed to accompdate for +/- range capability
-  // draw the bar graph
-  // write a upper and lower bar to minimize flicker cause by blanking out bar and redraw on update
-  level = (w * (((curval - loval) / (hival - loval))));
-  d.fillRect(x + level + 1, y + 1, w - level - 2, h - 2,  voidcolor);
-  d.fillRect(x + 1, y + 1 , level - 1,  h - 2, barcolor);
-  // write the current value
-  d.setTextColor(textcolor, backcolor);
-  d.setTextSize(2);
-  d.setCursor(x + w + 10 , y + 5);
-  d.println(Format(curval, dig, dec));
-}
-
-
-String Format(double val, int dec, int dig ) {
-  int addpad = 0;
-  char sbuf[20];
-  String condata = (dtostrf(val, dec, dig, sbuf));
-
-
-  int slen = condata.length();
-  for ( addpad = 1; addpad <= dec + dig - slen; addpad++) {
-    condata = " " + condata;
-  }
-  return (condata);
-
-}
