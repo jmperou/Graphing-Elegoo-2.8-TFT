@@ -18,5 +18,5 @@
   5. Upload to your display and enjoy
  
 # Notes
-  - Some of the example graphs included in Graphing.ino and Graph.ino aren't completely shown (they clip off of the display). This is just a positioning issue which can be resolved by modifying the X/Y positions and sizes of the graphs in the options of the function to your desire. 
+  - Some of the example graphs included in Graphing.ino and Graph.ino aren't completely shown (they clip off of the display). This is just a positioning/size issue which can be resolved by modifying the X/Y positions and sizes of the graphs in the options of the function to your desire. 
 
