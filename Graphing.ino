@@ -1,59 +1,24 @@
 /*
-
+  This program is based on Kris Kasprzak's Graphing project and customized for the Elegoo 2.8" TFT Touch Screen. 
+  Kris Kasprzak's Graphing github page: https://github.com/KrisKasprzak/Graphing
+  
   This program provides bar graph (horizontal and vertical orientations) and a dial type graph functions
-
-  It requires and Arduino Mega (or UNO) and an Adafruit 3.5" TFT 320x480 + Touchscreen Breakout Board
-  https://learn.adafruit.com/adafruit-3-5-color-320x480-tft-touchscreen-breakout/overview
-
-  Adafruit libraries
-  https://github.com/adafruit/Adafruit_HX8357_Library/archive/master.zip
-  https://github.com/adafruit/Adafruit-GFX-Library/archive/master.zip
-
-  optional touch screen libraries
-  https://github.com/adafruit/Touch-Screen-Library/archive/master.zip
-
+  Dependencies:
+    - Arduino Mega (or UNO) and an Elegoo 2.8" TFT Touch Screen
+        https://www.elegoo.com/products/elegoo-2-8-inches-tft-touch-screen
+    - The following Elegoo Libraries must be installed (note that the libraries are updated as of  May 2022 and are not maintained):
+        Elegoo Libraries (https://github.com/jmperou/Graphing-Elegoo-2.8-TFT/tree/main/Elegoo_Libraries)
+        For Library installation instructions (https://www.arduino.cc/en/Guide/Libraries#:~:text=In%20the%20Arduino%20IDE%2C%20navigate,ZIP%20Library''.)
   Revisions
   rev     date        author      description
-  1       12-19-2015  kasprzak    initial creation
-
-
-  This pin setting will also operate the SD card
-
-  Pin settings
-
-  Arduino   device
-  5V        Vin
-  GND       GND
-  A0
-  A1
-  A2         Y+ (for touch screen use)
-  A3         X- (for touch screen use)
-  A4
-  A5
-  1
-  2
-  3
-  4         CCS (42 for mega)
-  5
-  6
-  7         Y- (44 for mega)
-  8         X+ (46 for mega)
-  9         DC (48 on mega * change define)
-  10        CS (53 for mega * change define)
-  11        MOSI (51 for mega)
-  12        MISO  (50 for mega)
-  13        CLK (SCK) (52 for mega)
-  44        Y- (for touch screen only)
-  46        X+ (for touch screen only)
-  48        DC
-  SDA
-  SLC
-
+  2       05-20-2022  jmperou     customization for Elegoo 2.8" TFT Touch Screen
+  1       12-24-2015  kasprzak    initial creation
 */
 
 
 #include <SPI.h>
-#include <Adafruit_HX8357.h>
+#include <Elegoo_GFX.h>    // Core graphics library
+#include <Elegoo_TFTLCD.h> // Hardware-specific library
 
 // http://www.barth-dev.de/online/rgb565-color-picker/
 #define LTBLUE    0xB6DF
@@ -94,9 +59,11 @@
 #define DKPURPLE      0x4010
 #define DKGREY        0x4A49
 
-#define TFT_CS 53
-#define TFT_DC 48
-#define ADJ_PIN A0
+#define LCD_CS A3 // Chip Select goes to Analog 3
+#define LCD_CD A2 // Command/Data goes to Analog 2
+#define LCD_WR A1 // LCD Write goes to Analog 1
+#define LCD_RD A0 // LCD Read goes to Analog 0
+#define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
 
 double volts;
 double bvolts;
@@ -110,14 +77,56 @@ boolean graph_5 = true;
 boolean graph_6 = true;
 boolean graph_7 = true;
 
-Adafruit_HX8357 tft = Adafruit_HX8357(TFT_CS, TFT_DC);
+Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
 void setup() {
   Serial.begin(9600);
-  tft.begin(HX8357D);
+  #ifdef USE_Elegoo_SHIELD_PINOUT
+    Serial.println(F("Using Elegoo 2.8\" TFT Arduino Shield Pinout"));
+  #else
+    Serial.println(F("Using Elegoo 2.8\" TFT Breakout Board Pinout"));
+  #endif
+
+  Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
+
+  tft.reset();
+
+  uint16_t identifier = tft.readID();
+   if(identifier == 0x9325) {
+    Serial.println(F("Found ILI9325 LCD driver"));
+  } else if(identifier == 0x9328) {
+    Serial.println(F("Found ILI9328 LCD driver"));
+  } else if(identifier == 0x4535) {
+    Serial.println(F("Found LGDP4535 LCD driver"));
+  }else if(identifier == 0x7575) {
+    Serial.println(F("Found HX8347G LCD driver"));
+  } else if(identifier == 0x9341) {
+    Serial.println(F("Found ILI9341 LCD driver"));
+  } else if(identifier == 0x8357) {
+    Serial.println(F("Found HX8357D LCD driver"));
+  } else if(identifier==0x0101)
+  {     
+      identifier=0x9341;
+       Serial.println(F("Found 0x9341 LCD driver"));
+  }else {
+    Serial.print(F("Unknown LCD driver chip: "));
+    Serial.println(identifier, HEX);
+    Serial.println(F("If using the Elegoo 2.8\" TFT Arduino shield, the line:"));
+    Serial.println(F("  #define USE_Elegoo_SHIELD_PINOUT"));
+    Serial.println(F("should appear in the library header (Elegoo_TFT.h)."));
+    Serial.println(F("If using the breakout board, it should NOT be #defined!"));
+    Serial.println(F("Also if using the breakout, double-check that all wiring"));
+    Serial.println(F("matches the tutorial."));
+    identifier=0x9341;
+
+  }
+
+  tft.begin(identifier);
   tft.fillScreen(BLACK);
   tft.setRotation(3);
   pinMode(A0, INPUT);
+
+
 }
 
 void loop(void) {
@@ -126,11 +135,11 @@ void loop(void) {
   volts = (bvolts  / 204.6 ) ;
   pmvolts = (bvolts  / 204.6 ) - 2.5 ;
 
-  DrawBarChartV(tft, 10,  290, 30, 260, 0, 1200 , 100, bvolts , 4 , 0, BLUE, DKBLUE, BLUE, WHITE, BLACK, "Bits", graph_1);
+  DrawBarChartV(tft, 10,  130, 30, 100, 0, 1200 , 100, bvolts , 4 , 0, BLUE, DKBLUE, BLUE, WHITE, BLACK, "Bits", graph_1);
 
-  DrawBarChartH(tft, 100, 250, 300, 30, -2.5, 2.5, .5, pmvolts, 2, 1, GREEN, DKGREEN,  GREEN, WHITE, BLACK, "Offset", graph_6);
+  DrawBarChartH(tft, 70, 180, 200, 30, -2.5, 2.5, .5, pmvolts, 2, 1, GREEN, DKGREEN,  GREEN, WHITE, BLACK, "Offset", graph_6);
 
-  DrawDial(tft, 260, 120, 110, 0, 5 , 1, 240, volts,  1 , 2, RED, WHITE, BLACK, "Volts", graph_7);
+  DrawDial(tft, 220, 90, 80, 0, 5 , 1, 240, volts,  1 , 2, RED, WHITE, BLACK, "Volts", graph_7);
 
 }
 
@@ -138,7 +147,6 @@ void loop(void) {
 /*
   This method will draw a vertical bar graph for single input
   it has a rather large arguement list and is as follows
-
   &d = display object name
   x = position of bar graph (lower left of bar)
   y = position of bar (lower left of bar
@@ -157,10 +165,9 @@ void loop(void) {
   backcolor = color of the bar graph's background
   label = bottom lable text for the graph
   redraw = flag to redraw display only on first pass (to reduce flickering)
-
 */
 
-void DrawBarChartV(Adafruit_HX8357 & d, double x , double y , double w, double h , double loval , double hival , double inc , double curval ,  int dig , int dec, unsigned int barcolor, unsigned int voidcolor, unsigned int bordercolor, unsigned int textcolor, unsigned int backcolor, String label, boolean & redraw)
+void DrawBarChartV(Elegoo_TFTLCD & d, double x , double y , double w, double h , double loval , double hival , double inc , double curval ,  int dig , int dec, unsigned int barcolor, unsigned int voidcolor, unsigned int bordercolor, unsigned int textcolor, unsigned int backcolor, String label, boolean & redraw)
 {
 
   double stepval, range;
@@ -209,7 +216,6 @@ void DrawBarChartV(Adafruit_HX8357 & d, double x , double y , double w, double h
 /*
   This method will draw a dial-type graph for single input
   it has a rather large arguement list and is as follows
-
   &d = display object name
   cx = center position of dial
   cy = center position of dial
@@ -228,7 +234,7 @@ void DrawBarChartV(Adafruit_HX8357 & d, double x , double y , double w, double h
   redraw = flag to redraw display only on first pass (to reduce flickering)
 */
 
-void DrawDial(Adafruit_HX8357 & d, int cx, int cy, int r, double loval , double hival , double inc, double sa, double curval,  int dig , int dec, unsigned int needlecolor, unsigned int dialcolor, unsigned int  textcolor, String label, boolean & redraw) {
+void DrawDial(Elegoo_TFTLCD & d, int cx, int cy, int r, double loval , double hival , double inc, double sa, double curval,  int dig , int dec, unsigned int needlecolor, unsigned int dialcolor, unsigned int  textcolor, String label, boolean & redraw) {
 
   double ix, iy, ox, oy, tx, ty, lx, rx, ly, ry, i, offset, stepval, data, angle;
   double degtorad = .0174532778;
@@ -317,7 +323,6 @@ void DrawDial(Adafruit_HX8357 & d, int cx, int cy, int r, double loval , double 
 /*
   This method will draw a horizontal bar graph for single input
   it has a rather large arguement list and is as follows
-
   &d = display object name
   x = position of bar graph (upper left of bar)
   y = position of bar (upper left of bar (add some vale to leave room for label)
@@ -338,7 +343,7 @@ void DrawDial(Adafruit_HX8357 & d, int cx, int cy, int r, double loval , double 
   redraw = flag to redraw display only on first pass (to reduce flickering)
 */
 
-void DrawBarChartH(Adafruit_HX8357 & d, double x , double y , double w, double h , double loval , double hival , double inc , double curval ,  int dig , int dec, unsigned int barcolor, unsigned int voidcolor, unsigned int bordercolor, unsigned int textcolor, unsigned int backcolor, String label, boolean & redraw)
+void DrawBarChartH(Elegoo_TFTLCD & d, double x , double y , double w, double h , double loval , double hival , double inc , double curval ,  int dig , int dec, unsigned int barcolor, unsigned int voidcolor, unsigned int bordercolor, unsigned int textcolor, unsigned int backcolor, String label, boolean & redraw)
 {
   double stepval, range;
   double mx, level;
@@ -397,4 +402,3 @@ String Format(double val, int dec, int dig ) {
   return (condata);
 
 }
-
