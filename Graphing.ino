@@ -139,12 +139,12 @@ void loop(void) {
   bvolts = analogRead(A0);
   volts = (bvolts  / 204.6 ) ;
   pmvolts = (bvolts  / 204.6 ) - 2.5 ;
+  
+  DrawBarChartV(tft, 10,  130, 30, 100, 0, 1200 , 100, bvolts , 4 , 0, BLUE, DKBLUE, BLUE, WHITE, BLACK, "Bits", graph_1);
 
-  DrawBarChartV(tft, 10,  290, 30, 260, 0, 1200 , 100, bvolts , 4 , 0, BLUE, DKBLUE, BLUE, WHITE, BLACK, "Bits", graph_1);
+  DrawBarChartH(tft, 70, 180, 200, 30, -2.5, 2.5, .5, pmvolts, 2, 1, GREEN, DKGREEN,  GREEN, WHITE, BLACK, "Offset", graph_6);
 
-  DrawBarChartH(tft, 100, 250, 300, 30, -2.5, 2.5, .5, pmvolts, 2, 1, GREEN, DKGREEN,  GREEN, WHITE, BLACK, "Offset", graph_6);
-
-  DrawDial(tft, 260, 120, 110, 0, 5 , 1, 240, volts,  1 , 2, RED, WHITE, BLACK, "Volts", graph_7);
+  DrawDial(tft, 220, 90, 80, 0, 5 , 1, 240, volts,  1 , 2, RED, WHITE, BLACK, "Volts", graph_7);
 
 }
 
