@@ -3,12 +3,14 @@
   Kris Kasprzak's Graphing github page: https://github.com/KrisKasprzak/Graphing
   
   This program provides bar graph (horizontal and vertical orientations) and a dial type graph functions
+  
   Dependencies:
     - Arduino Mega (or UNO) and an Elegoo 2.8" TFT Touch Screen
         https://www.elegoo.com/products/elegoo-2-8-inches-tft-touch-screen
     - The following Elegoo Libraries must be installed (note that the libraries are updated as of  May 2022 and are not maintained):
         Elegoo Libraries (https://github.com/jmperou/Graphing-Elegoo-2.8-TFT/tree/main/Elegoo_Libraries)
         For Library installation instructions (https://www.arduino.cc/en/Guide/Libraries#:~:text=In%20the%20Arduino%20IDE%2C%20navigate,ZIP%20Library''.)
+        
   Revisions
   rev     date        author      description
   2       05-20-2022  jmperou     customization for Elegoo 2.8" TFT Touch Screen
