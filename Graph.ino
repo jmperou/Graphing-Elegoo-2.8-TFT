@@ -1,67 +1,35 @@
 /*
+This program is based on Kris Kasprzak's Graphing project and customized for the Elegoo 2.8" TFT Touch Screen. 
+Kris Kasprzak's Graphing github page: https://github.com/KrisKasprzak/Graphing
 
-This program provides cartesian type graph function
+This program provides cartesian type graph function.
 
-It requires and Arduino Mega (or UNO) and an Adafruit 3.5" TFT 320x480 + Touchscreen Breakout Board
-https://learn.adafruit.com/adafruit-3-5-color-320x480-tft-touchscreen-breakout/overview
-
-Adafruit libraries
-https://github.com/adafruit/Adafruit_HX8357_Library/archive/master.zip
-https://github.com/adafruit/Adafruit-GFX-Library/archive/master.zip
-
-optional touch screen libraries
-https://github.com/adafruit/Touch-Screen-Library/archive/master.zip
+Dependencies:
+  - Arduino Mega (or UNO) and an Elegoo 2.8" TFT Touch Screen
+      https://www.elegoo.com/products/elegoo-2-8-inches-tft-touch-screen
+  - The following Elegoo Libraries must be installed (note that the libraries are updated as of  May 2022 and are not maintained):
+      Elegoo Libraries (https://github.com/jmperou/Graphing-Elegoo-2.8-TFT/tree/main/Elegoo_Libraries)
+      For Library installation instructions (https://www.arduino.cc/en/Guide/Libraries#:~:text=In%20the%20Arduino%20IDE%2C%20navigate,ZIP%20Library''.)
 
 Revisions
 rev     date        author      description
+2       05-20-2022  jmperou     customization for Elegoo 2.8" TFT Touch Screen
 1       12-24-2015  kasprzak    initial creation
-
-
-This pin setting will also operate the SD card
-
-Pin settings
-
-  Arduino   device
-  5V        Vin
-  GND       GND
-  A0
-  A1
-  A2         Y+ (for touch screen use)
-  A3         X- (for touch screen use)
-  A4
-  A5
-  1
-  2
-  3
-  4         CCS (42 for mega)
-  5
-  6
-  7         Y- (44 for mega)
-  8         X+ (46 for mega)
-  9         DC (48 on mega * change define)
-  10        CS (53 for mega * change define)
-  11        MOSI (51 for mega)
-  12        MISO  (50 for mega)
-  13        CLK (SCK) (52 for mega)
-  44        Y- (for touch screen only)
-  46        X+ (for touch screen only)
-  48        DC
-  SDA
-  SLC
 
 */
 
 #include <SPI.h>
 #include <SD.h>
-#include "Adafruit_HX8357.h"
+#include <Elegoo_GFX.h>    // Core graphics library
+#include <Elegoo_TFTLCD.h> // Hardware-specific library
 
 
 // These are 'flexible' lines that can be changed
-
-#define TFT_CS 53
-#define TFT_DC 48
-#define TFT_RST 8 // RST can be set to -1 if you tie it to Arduino's reset
-#define SD_CCS 42
+#define LCD_CS A3 // Chip Select goes to Analog 3
+#define LCD_CD A2 // Command/Data goes to Analog 2
+#define LCD_WR A1 // LCD Write goes to Analog 1
+#define LCD_RD A0 // LCD Read goes to Analog 0
+#define LCD_RESET A4 // Can alternately just connect to Arduino's reset pin
 
 
 #define LTBLUE    0xB6DF
@@ -107,7 +75,7 @@ Pin settings
 
 double a1, b1, c1, d1, r2, r1, vo, tempC, tempF, tempK;
 
-Adafruit_HX8357 tft = Adafruit_HX8357(TFT_CS, TFT_DC);
+Elegoo_TFTLCD tft(LCD_CS, LCD_CD, LCD_WR, LCD_RD, LCD_RESET);
 
 // this is the only external variable used by the graph
 // it's a flat to draw the coordinate system only on the first pass
@@ -127,7 +95,47 @@ void setup() {
   Serial.begin(9600);
 
   pinMode(ADJ_PIN, INPUT);
-  tft.begin(HX8357D);
+ #ifdef USE_Elegoo_SHIELD_PINOUT
+  Serial.println(F("Using Elegoo 2.8\" TFT Arduino Shield Pinout"));
+#else
+  Serial.println(F("Using Elegoo 2.8\" TFT Breakout Board Pinout"));
+#endif
+
+  Serial.print("TFT size is "); Serial.print(tft.width()); Serial.print("x"); Serial.println(tft.height());
+
+  tft.reset();
+
+  uint16_t identifier = tft.readID();
+   if(identifier == 0x9325) {
+    Serial.println(F("Found ILI9325 LCD driver"));
+  } else if(identifier == 0x9328) {
+    Serial.println(F("Found ILI9328 LCD driver"));
+  } else if(identifier == 0x4535) {
+    Serial.println(F("Found LGDP4535 LCD driver"));
+  }else if(identifier == 0x7575) {
+    Serial.println(F("Found HX8347G LCD driver"));
+  } else if(identifier == 0x9341) {
+    Serial.println(F("Found ILI9341 LCD driver"));
+  } else if(identifier == 0x8357) {
+    Serial.println(F("Found HX8357D LCD driver"));
+  } else if(identifier==0x0101)
+  {     
+      identifier=0x9341;
+       Serial.println(F("Found 0x9341 LCD driver"));
+  }else {
+    Serial.print(F("Unknown LCD driver chip: "));
+    Serial.println(identifier, HEX);
+    Serial.println(F("If using the Elegoo 2.8\" TFT Arduino shield, the line:"));
+    Serial.println(F("  #define USE_Elegoo_SHIELD_PINOUT"));
+    Serial.println(F("should appear in the library header (Elegoo_TFT.h)."));
+    Serial.println(F("If using the breakout board, it should NOT be #defined!"));
+    Serial.println(F("Also if using the breakout, double-check that all wiring"));
+    Serial.println(F("matches the tutorial."));
+    identifier=0x9341;
+  
+  }
+
+  tft.begin(identifier);
   tft.fillScreen(BLACK);
 
   tft.setRotation(2);
@@ -236,7 +244,7 @@ void setup() {
     tempC  = ((tempK - 273.15) );
     y = tempF  = (tempC * 1.8000) + 32.00;
 
-    Graph(tft, x, y, 50, 290, 390, 260, 0, 60, 10, 70, 90, 5, "Room Temperature", " Time [s]", "Temperature [deg F]", DKBLUE, RED, GREEN, WHITE, BLACK, display7);
+    Graph(tft, x, y, 50, 200, 260, 180, 0, 60, 10, 70, 90, 5, "Room Temperature", " Time [s]", "Temperature [deg F]", DKBLUE, RED, GREEN, WHITE, BLACK, display7);
     delay(250);
   }
 
@@ -251,10 +259,8 @@ void loop(void) {
 }
 
 /*
-
   function to draw a cartesian coordinate system and plot whatever data you want
   just pass x and y and the graph will be drawn
-
   huge arguement list
   &d name of your display object
   x = x data point
@@ -281,7 +287,7 @@ void loop(void) {
 */
 
 
-void Graph(Adafruit_HX8357 &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw) {
+void Graph(Elegoo_TFTLCD &d, double x, double y, double gx, double gy, double w, double h, double xlo, double xhi, double xinc, double ylo, double yhi, double yinc, String title, String xlabel, String ylabel, unsigned int gcolor, unsigned int acolor, unsigned int pcolor, unsigned int tcolor, unsigned int bcolor, boolean &redraw) {
 
   double ydiv, xdiv;
   // initialize old x and old y in order to draw the first point of the graph
@@ -371,8 +377,3 @@ void Graph(Adafruit_HX8357 &d, double x, double y, double gx, double gy, double 
 /*
   End of graphing functioin
 */
-
-
-
-
-
