@@ -15,7 +15,7 @@
   2. Connect your Arduino Uno or Mega to your computer via usb cable
   3. Download and install the Elegoo Libraries onto your PC from here: https://github.com/jmperou/Graphing-Elegoo-2.8-TFT/tree/main/Elegoo_Libraries
   4. Copy and Paste the code from either Graphing.ino or Graph.ino into your project in your Arduino IDE
-  5. Upload to your display and enjoy
+  5. Upload to your Arduino Uno or Mega and enjoy
  
 # Notes
   - Some of the example graphs included in Graphing.ino and Graph.ino aren't completely shown (they clip off of the display). This is just a positioning/size issue which can be resolved by modifying the X/Y positions and sizes of the graphs in the options of the function to your desire. 
